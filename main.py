@@ -100,7 +100,7 @@ class State:
             print('\n')
 
 
-    # this method finds the distance till the correct position for the all cells in board, and returns heuristic value
+    # this method finds the distance till the correct position for all cells in board, and returns it as a heuristic value
     def heuristic(self):
         misplaced_fruits = 0
         for col in range(10):
@@ -119,13 +119,13 @@ class State:
     def is_goal(self):
         return self.heuristic() == 0
     
-    # this method swaps 2 cells 
+    # this method swaps 2 cells and creates new board 
     def swap(self, x1, y1, x2, y2):
         new_matrix = [row.copy() for row in self.matrix]
         new_matrix[x1][y1], new_matrix[x2][y2] = new_matrix[x2][y2], new_matrix[x1][y1]
         return State(new_matrix, parent=self, move=((x1, y1), (x2, y2)), path =self.path + (((x1, y1), (x2, y2)), ), g=self.g + 1)
     
-    # this nethod generates next moves
+    # this method generates next moves
     def get_neighbors(self):
         neighbors = []
         for sp in pm:
@@ -158,8 +158,9 @@ while open_list:
     # generates possible moves
     neighbors =  current_state.get_neighbors()
 
-    # here it checks if the new board is in closed_list
+    # here it chooses next move from possible moves
     for neighbor in neighbors:
+        # here it checks if the new board is in closed_list, if so it checks other moves
         matrix_tuple = tuple(map(tuple, neighbor.matrix))
         if matrix_tuple in closed_list:
             continue
