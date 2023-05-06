@@ -164,7 +164,8 @@ while open_list:
         matrix_tuple = tuple(map(tuple, neighbor.matrix))
         if matrix_tuple in closed_list:
             continue
-        
+            
+        # checks if the new state of board is already in open_list with higher g and if so goes to next possible move
         in_open_list = False
         for s in open_list:
             if neighbor.matrix == s[2].matrix and neighbor.g >= s[2].g:
