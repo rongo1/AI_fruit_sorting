@@ -7,52 +7,49 @@ import time
 
 
 
-data_frame = pd.read_csv('a4.csv', sep = ';', header=None)
 
-initial_matrix = [[('b', 4), ('o', 4), ('a', 1), ('a', 5), ('o', 2), ('b', 6), ('b', 8), ('o', 3), ('o', 6), ('o', 9)], [('a', 9), ('b', 7), ('o', 10), ('a', 3), ('b', 5), ('a', 4), ('a', 2), ('o', 5), ('o', 8), ('o', 1)], [('a', 10), ('o', 7), ('a', 7), ('a', 8), ('b', 2), ('b', 10), ('b', 9), ('b', 3), ('a', 6), ('b', 1)]]
+initial_matrix = [[('a', 1), ('a', 7), ('a', 2), ('b', 5), ('o', 4), ('a', 3), ('a', 10), ('a', 9), ('o', 5), ('b', 6)], [('a', 8), ('a', 5), ('b', 8), ('o', 2), ('b', 4), ('o', 6), ('a', 4), ('o', 3), ('o', 9), ('a', 6)], [('o', 1), ('b', 7), ('o', 8), ('b', 1), ('o', 10), ('b', 2), ('b', 3), ('b', 9), ('b', 10), ('o', 7)]]
 
-# this method counts fruits and decided in which column which fruit should be. 
-# It estimates the right column of fruit
-def count_fruits(m):
-    a = []
-    fruits = ['b', 'a', 'o']
-    for row in m:
-        counts = {'b': 0, 'a': 0, 'o': 0}
-        for letter, _ in row:
-            counts[letter] += 1
-        a.append(counts)
-    # print("a", a)
-    keys = []
-    for d in a:
-        if max(d, key=d.get) not in keys:
-            keys.append(max(d, key=d.get))
-        else:
-            for f in fruits:
-                if f not in keys:
-                    keys.append(f)
-                    break
-            
-    return keys
-fruit_order = count_fruits(initial_matrix)
+
+
+fruits = ['a', 'b', 'o']
+
+# Recursive function to generate 6 fruit combinations
+def generate_fruit_order(combination, index, fruit_order):
+    if index == 3:
+        fruit_order.append(''.join(combination))
+        return
+
+    for fruit in fruits:
+        if fruit not in combination:
+            combination.append(fruit)
+            generate_fruit_order(combination, index + 1, fruit_order)
+            combination.pop()
+
+combination = []
+fruit_order = []
+generate_fruit_order(combination, 0, fruit_order)
+    
+
 
 # this method estimates the right position in a vertical direction 
 def estimate_position(initial_matrix):
     values = []
     
-    for f in fruit_order:
+    for f in fruits:
         value = [element[1] for row in initial_matrix for element in row if element[0] == f]
         values.append(value)
     positions = {}
     for col in range(10):
         for row in range(3):
             fruit = initial_matrix[row][col][0]
-            fruit_type = fruit_order.index(fruit)
+            fruit_type = fruits.index(fruit)
             num = sum(1 for x in values[fruit_type] if x <= initial_matrix[row][col][1]) - 1
             positions.update({initial_matrix[row][col] : num})
     
 
     return positions
-right_positions = estimate_position(initial_matrix)
+
 
 
 
@@ -77,13 +74,13 @@ def genrate_possible_moves(m):
 pm = genrate_possible_moves(initial_matrix)
 
 class State:
-    def __init__(self, matrix, parent=None, move=None, path=(), g=0):
+    def __init__(self, matrix,fruit_order_i, parent=None, move=None, path=(), g=0):
         self.matrix = matrix
         self.parent = parent
         self.path = path
         self.move = move
         self.g = g
-        self.h = self.heuristic()
+        self.h = self.heuristic(fruit_order_i)
         self.f = self.g + self.h
         
 
@@ -91,8 +88,8 @@ class State:
         return self.f < other.f
     
     # this method shows the board
-    def show_board(self):
-        print(fruit_order)
+    def show_board(self, i):
+        print(fruit_order[i])
         for i in range(10):
             print(i, end = " ")
             for j in range(len(self.matrix)):
@@ -101,7 +98,7 @@ class State:
 
 
     # this method finds the distance till the correct position for all cells in board, and returns it as a heuristic value
-    def heuristic(self):
+    def heuristic(self, fruit_order_i):
         misplaced_fruits = 0
         for col in range(10):
             for row in range(3):
@@ -109,79 +106,117 @@ class State:
                 value = self.matrix[row][col][1]
                 s1 = right_positions[self.matrix[row][col]]
                 misplaced_fruits += abs(col - s1)
-                fruit_order_v1 = fruit_order.index(fruit)
+                fruit_order_v1 = fruit_order[fruit_order_i].index(fruit)
+                
                 act_o_v1 = row                 
+                
                 if fruit_order_v1 != act_o_v1:
                     misplaced_fruits += (abs(fruit_order_v1 - act_o_v1))
+                    
         return misplaced_fruits
     
     # this method checks if the board reached the target value
-    def is_goal(self):
-        return self.heuristic() == 0
+    def is_goal(self, fruit_order_i):
+        return self.heuristic(fruit_order_i) == 0
     
     # this method swaps 2 cells and creates new board 
-    def swap(self, x1, y1, x2, y2):
+    def swap(self, x1, y1, x2, y2, fruit_order_i):
         new_matrix = [row.copy() for row in self.matrix]
         new_matrix[x1][y1], new_matrix[x2][y2] = new_matrix[x2][y2], new_matrix[x1][y1]
-        return State(new_matrix, parent=self, move=((x1, y1), (x2, y2)), path =self.path + (((x1, y1), (x2, y2)), ), g=self.g + 1)
+        return State(new_matrix, fruit_order_i, parent=self, move=((x1, y1), (x2, y2)), path =self.path + (((x1, y1), (x2, y2)), ), g=self.g + 1)
     
     # this method generates next moves
-    def get_neighbors(self):
+    def get_neighbors(self, fruit_order_i):
         neighbors = []
         for sp in pm:
-            new = self.swap(sp[0][0], sp[0][1], sp[1][0], sp[1][1])
+            new = self.swap(sp[0][0], sp[0][1], sp[1][0], sp[1][1], fruit_order_i)
             if new.h <= self.h:
                 neighbors.append(new)
         return neighbors
 
 start_time = time.time()
-initial_state = State(initial_matrix)
+right_positions = estimate_position(initial_matrix)
+sorted_versions = []
 
-initial_state.show_board()
-open_list = [(initial_state.f, initial_state.h, initial_state)]
+# generates 6 versions of sorted array for each combination
+# because of good heuristic 1 iteration takes 1-2 seconds, so calculation of 6 combinations takes 6-15 seconds 
+for fruit_order_i in range(6):
+    
+    initial_state = State(initial_matrix, fruit_order_i)
+    if fruit_order_i == 0:
+        print("Initial state")
+        initial_state.show_board(fruit_order_i)
+    open_list = [(initial_state.f, initial_state.h, initial_state)]
 
-closed_list = set()
-closed_pathes = set()
-counter = 0
-
-
-while open_list:
-    # all next steps are saved in open_list. New move is taken from it
-    current_state = heapq.heappop(open_list)[2]
-
-    counter+=1
-
-    if current_state.is_goal():
-        print('SORTED')
-        break
-
-    # generates possible moves
-    neighbors =  current_state.get_neighbors()
-
-    # here it chooses next move from possible moves
-    for neighbor in neighbors:
-        # here it checks if the new board is in closed_list, if so it checks other moves
-        matrix_tuple = tuple(map(tuple, neighbor.matrix))
-        if matrix_tuple in closed_list:
-            continue
-            
-        # checks if the new state of board is already in open_list with higher g and if so goes to next possible move
-        in_open_list = False
-        for s in open_list:
-            if neighbor.matrix == s[2].matrix and neighbor.g >= s[2].g:
-                in_open_list = True
-                break
+    closed_list = set()
+    closed_pathes = set()
+    counter = 0
+    while open_list:
+        counter+=1
+        # all next steps are saved in open_list. New move is taken from it
+        current_state = heapq.heappop(open_list)[2]
         
-        # it adds new board to open_list and current one to closed_list
-        if not in_open_list:
-            heapq.heappush(open_list, (neighbor.h, neighbor.f, neighbor))
-            closed_list.add(tuple(map(tuple, current_state.matrix)))
+        # if counter % 10 == 0:
+        #     print(current_state.move,current_state.g, current_state.h, counter,'\n')
+            
+        #     current_state.show_board(fruit_order_i)            
+        #     print('\n')
+ 
+        
+    
+        if current_state.is_goal(fruit_order_i):
+            print('SORTED', end = " ")
+            print(f'It took {len(current_state.path)} swaps for {fruit_order[fruit_order_i]} combination')
+            break
+    
+        # generates possible moves
+        neighbors =  current_state.get_neighbors(fruit_order_i)
+    
+        # here it chooses next move from possible moves
+        for neighbor in neighbors:
+            # here it checks if the new board is in closed_list, if so it checks other moves
+            matrix_tuple = tuple(map(tuple, neighbor.matrix))
+            if matrix_tuple in closed_list:
+                continue
+            
+            in_open_list = False
+            for s in open_list:
+                if neighbor.matrix == s[2].matrix and neighbor.g >= s[2].g:
+                    in_open_list = True
+                    break
+            
+            # it adds new board to open_list and current one to closed_list
+            if not in_open_list:
+                heapq.heappush(open_list, (neighbor.h, neighbor.f, neighbor))
+                closed_list.add(tuple(map(tuple, current_state.matrix)))
+    current_state.show_board(fruit_order_i)
+    sorted_versions.append(current_state)
 
     
-
-current_state.show_board()
 print("iterations:", counter)
-print("moves:", len(current_state.path))
 print("--- %s seconds ---" % (time.time() - start_time))
+
+min_swaps = 100000000
+best_state = ''
+best_fruit_order = 0
+best_fruit_orders = []
+c = 0
+
+# it picks the one with minimum swaps among all 6 sorted versions of initial array. 
+print("BEST STATES:")
+for state in sorted_versions:
+    # print(len(state.path))
+    if len(state.path) <= min_swaps:
+        best_state = state
+        best_fruit_order = c
+        min_swaps = len(state.path) 
+    c+=1
+    
+    
+
+print('number_of_swaps=', len(best_state.path))
+best_state.show_board(best_fruit_order)
+    
+print()
 
 
